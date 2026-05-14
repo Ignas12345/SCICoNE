@@ -56,18 +56,23 @@ def read_coverage_csv(csv_path, cell_column="CB", chromosome_column="chrom", bin
         cell_order = cells_to_keep
     else:
         cell_order = sorted(df[cell_column].unique().tolist())
+        if df.shape[0] == 0:
+            raise ValueError("Input CSV contains no rows.")
 
     bin_sizes = (df[end_column] - df[start_column]).unique()
+    if len(bin_sizes) == 0:
+        raise ValueError("No bins found in input CSV.")
     inferred_bin_size = bin_sizes[0]
     if not np.all(bin_sizes == inferred_bin_size):
         raise ValueError("All bins must have the same bin_size.")
     bin_size = int(inferred_bin_size)
 
     chromosome_order = _sort_chromosomes_safe(df[chromosome_column].unique())
-    chromosome_bin_map = {
-        ch: np.sort(df.loc[df[chromosome_column] == ch, bin_column].unique().astype(int))
-        for ch in chromosome_order
+    grouped_bins = {
+        str(ch): np.sort(group[bin_column].unique().astype(int))
+        for ch, group in df.groupby(chromosome_column)
     }
+    chromosome_bin_map = {str(ch): grouped_bins[str(ch)] for ch in chromosome_order}
     all_columns = [(str(ch), int(b)) for ch in chromosome_order for b in chromosome_bin_map[ch]]
     full_column_index = pd.MultiIndex.from_tuples(all_columns, names=[chromosome_column, bin_column])
 
