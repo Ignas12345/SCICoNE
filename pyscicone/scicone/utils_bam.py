@@ -86,7 +86,7 @@ def read_bam(
                 cell_bin_counts[global_bin_idx] = cell_bin_counts.get(global_bin_idx, 0) + 1
 
     if len(cell_counts) == 0:
-        raise ValueError("No usable reads with cell barcodes were found in BAM.")
+        raise ValueError(f"No usable reads with cell barcodes (tag: {cell_tag}) were found in BAM.")
 
     cell_barcodes = sorted(cell_counts.keys())
     unfiltered_counts = np.zeros((len(cell_barcodes), total_bins), dtype=float)
@@ -100,7 +100,9 @@ def read_bam(
         unfiltered_counts = unfiltered_counts[keep_cells]
         cell_barcodes = [bc for i, bc in enumerate(cell_barcodes) if keep_cells[i]]
         if unfiltered_counts.shape[0] == 0:
-            raise ValueError("No cells remain after min_reads_per_cell filtering.")
+            raise ValueError(
+                f"No cells remain after filtering cells with fewer than {min_reads_per_cell} reads."
+            )
 
     is_excluded = np.zeros(total_bins, dtype=bool)
     if bins_to_exclude is not None:
@@ -214,7 +216,11 @@ def _resolve_reference_name(chromosome, references, current_chromosome_name_pref
         seen.add(name)
         if name in references:
             return name
-    raise ValueError(f"Could not find reference for chromosome {chromosome}")
+    references_preview = list(references)[:10]
+    raise ValueError(
+        f'Could not find reference for chromosome {chromosome} with prefix "{current_chromosome_name_prefix}" '
+        f"in BAM references: {references_preview}"
+    )
 
 
 def _normalize_reference_name(ref_name, current_chromosome_name_prefix=""):

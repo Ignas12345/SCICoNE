@@ -97,7 +97,7 @@ class SCICoNE(object):
     def read_10x(self, h5f_path, bins_to_exclude=None, downsampling_factor=1):
         self.data = utils_10x.read_hdf5(h5f_path, bins_to_exclude=bins_to_exclude, downsampling_factor=downsampling_factor)
 
-    def read_bam(self, bam_path, bins_to_exclude=None, downsampling_factor=1, bin_size=20000,
+    def read_bam(self, bam_path, bins_to_exclude=None, downsampling_factor=1, bin_size=utils_bam.DEFAULT_BIN_SIZE_BP,
                  current_chromosome_name_prefix="", desired_chromosome_name_prefix="", **kwargs):
         """
         Read single-cell alignments from BAM and populate self.data in SCICoNE format.
