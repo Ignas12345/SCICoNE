@@ -3,7 +3,8 @@ import numpy as np
 import pysam
 
 
-DEFAULT_BIN_SIZE_BP = 20 * 10 ** 3
+SUPPORTED_CHROMOSOMES = {str(i) for i in range(1, 23)} | {"x", "y"}
+DEFAULT_BIN_SIZE_BP = 20000  # 20 kb
 
 
 def read_bam(
@@ -165,14 +166,19 @@ def _get_selected_chromosomes(bamf):
         ref_name_lower = ref_name.lower()
         if ref_name_lower.startswith("chr"):
             ref_name_lower = ref_name_lower[3:]
-        if ref_name_lower in [str(i) for i in range(1, 23)] + ["x", "y"]:
+        if ref_name_lower in SUPPORTED_CHROMOSOMES:
             normalized.append(ref_name_lower.upper())
 
     return list(utils.sort_chromosomes(np.array(normalized)))
 
 
 def _resolve_reference_name(chromosome, references):
-    candidate_names = [chromosome, chromosome.lower(), f"chr{chromosome}", f"chr{chromosome.lower()}"]
+    candidate_names = {
+        chromosome,
+        chromosome.lower(),
+        f"chr{chromosome}",
+        f"chr{chromosome.lower()}",
+    }
     for name in candidate_names:
         if name in references:
             return name
