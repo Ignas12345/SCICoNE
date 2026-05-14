@@ -17,9 +17,9 @@ def _extract_chromosome_stops_from_sizes(chromosome_order, bins_per_chromosome, 
     chr_ends = np.cumsum([bins_per_chromosome[ch] for ch in chromosome_order])
     chr_stops = dict()
     if bins_to_exclude is not None:
-        bins_to_exclude = np.array(bins_to_exclude).astype(int)
+        bins_to_exclude = np.sort(np.array(bins_to_exclude).astype(int))
         for idx, pos in enumerate(chr_ends):
-            excluded_count = len(bins_to_exclude[np.where(bins_to_exclude < pos)[0]])
+            excluded_count = np.searchsorted(bins_to_exclude, pos, side="left")
             chr_stops[chromosome_order[idx]] = pos - 1 - excluded_count
     else:
         for idx, pos in enumerate(chr_ends):
@@ -58,8 +58,6 @@ def read_coverage_csv(csv_path, cell_column="CB", chromosome_column="chrom", bin
         cell_order = sorted(df[cell_column].unique().tolist())
 
     bin_sizes = (df[end_column] - df[start_column]).unique()
-    if len(bin_sizes) == 0:
-        raise ValueError("Could not infer bin_size from CSV.")
     if not np.all(bin_sizes == bin_sizes[0]):
         raise ValueError("All bins must have the same bin_size.")
     bin_size = int(bin_sizes[0])
