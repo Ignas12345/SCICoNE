@@ -182,7 +182,12 @@ def _get_selected_chromosomes(bamf, current_chromosome_name_prefix=""):
             current_chromosome_name_prefix=current_chromosome_name_prefix,
         )
         if ref_name_lower in SUPPORTED_CHROMOSOMES_LOWER:
-            normalized.append("X" if ref_name_lower == "x" else "Y" if ref_name_lower == "y" else ref_name_lower)
+            if ref_name_lower == "x":
+                normalized.append("X")
+            elif ref_name_lower == "y":
+                normalized.append("Y")
+            else:
+                normalized.append(ref_name_lower)
 
     return list(utils.sort_chromosomes(np.array(normalized)))
 
