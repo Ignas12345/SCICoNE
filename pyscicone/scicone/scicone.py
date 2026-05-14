@@ -97,6 +97,22 @@ class SCICoNE(object):
     def read_10x(self, h5f_path, bins_to_exclude=None, downsampling_factor=1):
         self.data = utils_10x.read_hdf5(h5f_path, bins_to_exclude=bins_to_exclude, downsampling_factor=downsampling_factor)
 
+    def read_coverage_from_csv(self, csv_path, cell_column="CB", chromosome_column="chrom", bin_column="bin",
+                               start_column="start", end_column="end", count_column="count",
+                               current_chromosome_prefix="", cells_to_keep=None, bins_to_exclude=None):
+        self.data = utils_10x.read_coverage_csv(
+            csv_path,
+            cell_column=cell_column,
+            chromosome_column=chromosome_column,
+            bin_column=bin_column,
+            start_column=start_column,
+            end_column=end_column,
+            count_column=count_column,
+            current_chromosome_prefix=current_chromosome_prefix,
+            cells_to_keep=cells_to_keep,
+            bins_to_exclude=bins_to_exclude
+        )
+
     def simulate_data(self, n_cells=200, n_nodes=5, n_bins=1000, n_regions=40, n_reads=10000, nu=1.0, min_reg_size=10, max_regions_per_node=1, ploidy=2, region_neutral_states=None, verbosity=1, seed=42):
         if verbosity < 1:
             verbosity = 1
