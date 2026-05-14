@@ -3,7 +3,7 @@ import numpy as np
 import pysam
 
 
-SUPPORTED_CHROMOSOMES = {str(i) for i in range(1, 23)} | {"x", "y"}
+SUPPORTED_CHROMOSOMES_LOWER = {str(i) for i in range(1, 23)} | {"x", "y"}
 DEFAULT_BIN_SIZE_BP = 20000  # 20 kb
 
 
@@ -166,7 +166,7 @@ def _get_selected_chromosomes(bamf):
         ref_name_lower = ref_name.lower()
         if ref_name_lower.startswith("chr"):
             ref_name_lower = ref_name_lower[3:]
-        if ref_name_lower in SUPPORTED_CHROMOSOMES:
+        if ref_name_lower in SUPPORTED_CHROMOSOMES_LOWER:
             normalized.append(ref_name_lower.upper())
 
     return list(utils.sort_chromosomes(np.array(normalized)))
@@ -193,9 +193,9 @@ def _extract_chromosome_stops(sorted_chromosomes, n_bins_per_chrom, bins_to_excl
             chr_stops[sorted_chromosomes[idx]] = int(pos - 1)
         return chr_stops
 
-    bins_to_exclude = np.array(bins_to_exclude, dtype=int).ravel()
+    bins_to_exclude = np.sort(np.array(bins_to_exclude, dtype=int).ravel())
     for idx, pos in enumerate(chr_ends):
-        excluded_before = len(bins_to_exclude[np.where(bins_to_exclude < pos)[0]])
+        excluded_before = np.searchsorted(bins_to_exclude, pos, side="left")
         chr_stops[sorted_chromosomes[idx]] = int(pos - 1 - excluded_before)
 
     return chr_stops

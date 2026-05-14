@@ -98,6 +98,21 @@ class SCICoNE(object):
         self.data = utils_10x.read_hdf5(h5f_path, bins_to_exclude=bins_to_exclude, downsampling_factor=downsampling_factor)
 
     def read_bam(self, bam_path, bins_to_exclude=None, downsampling_factor=1, bin_size=20000, **kwargs):
+        """
+        Read single-cell alignments from BAM and populate self.data in SCICoNE format.
+        bam_path : str
+            Path to input BAM file.
+        bins_to_exclude : list[int], optional
+            Global bin indices to exclude before downstream analysis.
+        downsampling_factor : int
+            Multiplies the effective bin size.
+        bin_size : int
+            Base bin size in base pairs before downsampling.
+        **kwargs
+            Additional options passed to scicone.utils_bam.read_bam, including
+            cell_tag, allow_missing_cell_tag, min_mapping_quality, read filtering flags,
+            min_reads_per_cell and remove_noisy_bins.
+        """
         self.data = utils_bam.read_bam(
             bam_path,
             bins_to_exclude=bins_to_exclude,
