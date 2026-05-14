@@ -1,8 +1,114 @@
 import scicone.utils as utils
 import h5py
 import numpy as np
+import pandas as pd
+import re
 
 DEFAULT_BIN_SIZE_KB=20 # the 10x Genomics setting
+
+def _sort_chromosomes_safe(chromosome_list):
+    chromosome_list = np.array(chromosome_list).astype(str)
+    try:
+        return utils.sort_chromosomes(chromosome_list)
+    except ValueError:
+        return np.sort(chromosome_list)
+
+def _extract_chromosome_stops_from_sizes(chromosome_order, bins_per_chromosome, bins_to_exclude=None):
+    chr_ends = np.cumsum([bins_per_chromosome[ch] for ch in chromosome_order])
+    chr_stops = dict()
+    if bins_to_exclude is not None:
+        bins_to_exclude = np.array(bins_to_exclude).astype(int)
+        for idx, pos in enumerate(chr_ends):
+            chr_stops[chromosome_order[idx]] = pos - 1 - len(bins_to_exclude[np.where(bins_to_exclude < pos)[0]])
+    else:
+        for idx, pos in enumerate(chr_ends):
+            chr_stops[chromosome_order[idx]] = pos - 1
+    return chr_stops
+
+def read_coverage_csv(csv_path, cell_column="CB", chromosome_column="chrom", bin_column="bin", start_column="start",
+                      end_column="end", count_column="count", current_chromosome_prefix="",
+                      cells_to_keep=None, bins_to_exclude=None):
+    df = pd.read_csv(csv_path)
+    required_columns = [cell_column, chromosome_column, bin_column, start_column, end_column, count_column]
+    missing_columns = [c for c in required_columns if c not in df.columns]
+    if len(missing_columns) > 0:
+        raise ValueError(f"Missing required columns in CSV: {missing_columns}")
+
+    df = df[required_columns].copy()
+    df[cell_column] = df[cell_column].astype(str)
+    df[chromosome_column] = df[chromosome_column].astype(str)
+    df[bin_column] = df[bin_column].astype(int)
+    df[count_column] = df[count_column].astype(float)
+    df[start_column] = df[start_column].astype(int)
+    df[end_column] = df[end_column].astype(int)
+
+    if current_chromosome_prefix:
+        df[chromosome_column] = df[chromosome_column].str.replace(
+            "^" + re.escape(current_chromosome_prefix), "", regex=True
+        )
+
+    if cells_to_keep is not None:
+        cells_to_keep = [str(c) for c in cells_to_keep]
+        df = df[df[cell_column].isin(cells_to_keep)].copy()
+        if df.shape[0] == 0:
+            raise ValueError("No rows remain after filtering by cells_to_keep.")
+        cell_order = cells_to_keep
+    else:
+        cell_order = sorted(df[cell_column].unique().tolist())
+
+    bin_sizes = (df[end_column] - df[start_column]).unique()
+    if len(bin_sizes) == 0:
+        raise ValueError("Could not infer bin_size from CSV.")
+    if not np.all(bin_sizes == bin_sizes[0]):
+        raise ValueError("All bins must have the same bin_size.")
+    bin_size = int(bin_sizes[0])
+
+    chromosome_order = _sort_chromosomes_safe(df[chromosome_column].unique())
+    chromosome_bin_map = {
+        ch: np.sort(df.loc[df[chromosome_column] == ch, bin_column].unique().astype(int))
+        for ch in chromosome_order
+    }
+    all_columns = [(str(ch), int(b)) for ch in chromosome_order for b in chromosome_bin_map[ch]]
+    full_column_index = pd.MultiIndex.from_tuples(all_columns, names=[chromosome_column, bin_column])
+
+    matrix_df = df.pivot_table(
+        index=cell_column,
+        columns=[chromosome_column, bin_column],
+        values=count_column,
+        aggfunc="sum",
+        fill_value=0
+    )
+    matrix_df = matrix_df.reindex(columns=full_column_index, fill_value=0)
+    matrix_df = matrix_df.reindex(index=cell_order, fill_value=0)
+    unfiltered_counts = matrix_df.to_numpy()
+
+    bins_per_chromosome = {str(ch): len(chromosome_bin_map[ch]) for ch in chromosome_order}
+    unfiltered_chromosome_stops = _extract_chromosome_stops_from_sizes(chromosome_order, bins_per_chromosome)
+
+    if bins_to_exclude is None:
+        excluded_bins = np.array([], dtype=int)
+    else:
+        excluded_bins = np.unique(np.array(bins_to_exclude).astype(int))
+        excluded_bins = excluded_bins[(excluded_bins >= 0) & (excluded_bins < unfiltered_counts.shape[1])]
+
+    is_excluded = np.zeros(unfiltered_counts.shape[1], dtype=bool)
+    is_excluded[excluded_bins] = True
+    filtered_counts = unfiltered_counts[:, ~is_excluded]
+    filtered_chromosome_stops = _extract_chromosome_stops_from_sizes(
+        chromosome_order,
+        bins_per_chromosome,
+        bins_to_exclude=excluded_bins
+    )
+
+    extracted_data = dict()
+    extracted_data["unfiltered_counts"] = unfiltered_counts
+    extracted_data["unfiltered_chromosome_stops"] = unfiltered_chromosome_stops
+    extracted_data["filtered_counts"] = filtered_counts
+    extracted_data["excluded_bins"] = excluded_bins
+    extracted_data["filtered_cnvs"] = None
+    extracted_data["filtered_chromosome_stops"] = filtered_chromosome_stops
+    extracted_data["bin_size"] = bin_size
+    return extracted_data
 
 def read_hdf5(h5f_path, bins_to_exclude=None, downsampling_factor=1, remove_noisy_cells=True):
     extracted_data = dict()
