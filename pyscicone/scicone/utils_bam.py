@@ -12,6 +12,8 @@ def read_bam(
     bins_to_exclude=None,
     downsampling_factor=1,
     bin_size=DEFAULT_BIN_SIZE_BP,
+    current_chromosome_name_prefix="",
+    desired_chromosome_name_prefix="",
     cell_tag="CB",
     fallback_barcode="bulk",
     allow_missing_cell_tag=False,
@@ -29,17 +31,28 @@ def read_bam(
         raise ValueError("bin_size must be > 0")
 
     with pysam.AlignmentFile(bam_path, "rb") as bamf:
-        selected_chromosomes = _get_selected_chromosomes(bamf)
+        selected_chromosomes = _get_selected_chromosomes(
+            bamf,
+            current_chromosome_name_prefix=current_chromosome_name_prefix,
+        )
         if len(selected_chromosomes) == 0:
             raise ValueError("No supported chromosomes found in BAM header.")
 
         chromosome_info = []
         for chrom in selected_chromosomes:
-            ref_name = _resolve_reference_name(chrom, bamf.references)
+            ref_name = _resolve_reference_name(
+                chrom,
+                bamf.references,
+                current_chromosome_name_prefix=current_chromosome_name_prefix,
+            )
             ref_length = bamf.get_reference_length(ref_name)
             n_bins = int(np.ceil(ref_length / effective_bin_size))
+            output_chrom = _format_output_chromosome_name(
+                chrom,
+                desired_chromosome_name_prefix=desired_chromosome_name_prefix,
+            )
             chromosome_info.append(
-                dict(chrom=chrom, ref_name=ref_name, n_bins=n_bins)
+                dict(chrom=output_chrom, ref_name=ref_name, n_bins=n_bins)
             )
 
         offsets = np.cumsum([0] + [info["n_bins"] for info in chromosome_info[:-1]])
@@ -108,9 +121,10 @@ def read_bam(
     excluded_bins = np.where(is_excluded)[0]
 
     n_bins_per_chrom = [info["n_bins"] for info in chromosome_info]
-    unfiltered_chromosome_stops = _extract_chromosome_stops(selected_chromosomes, n_bins_per_chrom)
+    output_chromosomes = [info["chrom"] for info in chromosome_info]
+    unfiltered_chromosome_stops = _extract_chromosome_stops(output_chromosomes, n_bins_per_chrom)
     filtered_chromosome_stops = _extract_chromosome_stops(
-        selected_chromosomes,
+        output_chromosomes,
         n_bins_per_chrom,
         bins_to_exclude=excluded_bins,
     )
@@ -160,29 +174,57 @@ def _extract_cell_barcode(
     return None
 
 
-def _get_selected_chromosomes(bamf):
+def _get_selected_chromosomes(bamf, current_chromosome_name_prefix=""):
     normalized = []
     for ref_name in bamf.references:
-        ref_name_lower = ref_name.lower()
-        if ref_name_lower.startswith("chr"):
-            ref_name_lower = ref_name_lower[3:]
+        ref_name_lower = _normalize_reference_name(
+            ref_name,
+            current_chromosome_name_prefix=current_chromosome_name_prefix,
+        )
         if ref_name_lower in SUPPORTED_CHROMOSOMES_LOWER:
-            normalized.append(ref_name_lower.upper())
+            normalized.append("X" if ref_name_lower == "x" else "Y" if ref_name_lower == "y" else ref_name_lower)
 
     return list(utils.sort_chromosomes(np.array(normalized)))
 
 
-def _resolve_reference_name(chromosome, references):
-    candidate_names = {
+def _resolve_reference_name(chromosome, references, current_chromosome_name_prefix=""):
+    candidate_names = [
         chromosome,
         chromosome.lower(),
         f"chr{chromosome}",
         f"chr{chromosome.lower()}",
-    }
+    ]
+    if current_chromosome_name_prefix:
+        candidate_names.extend([
+            f"{current_chromosome_name_prefix}{chromosome}",
+            f"{current_chromosome_name_prefix}{chromosome.lower()}",
+            f"{current_chromosome_name_prefix}chr{chromosome}",
+            f"{current_chromosome_name_prefix}chr{chromosome.lower()}",
+        ])
+
+    seen = set()
     for name in candidate_names:
+        if name in seen:
+            continue
+        seen.add(name)
         if name in references:
             return name
     raise ValueError(f"Could not find reference for chromosome {chromosome}")
+
+
+def _normalize_reference_name(ref_name, current_chromosome_name_prefix=""):
+    normalized = ref_name.lower()
+    if current_chromosome_name_prefix:
+        prefix = current_chromosome_name_prefix.lower()
+        if normalized.startswith(prefix):
+            normalized = normalized[len(prefix):]
+    if normalized.startswith("chr"):
+        normalized = normalized[3:]
+    return normalized
+
+
+def _format_output_chromosome_name(chromosome, desired_chromosome_name_prefix=""):
+    return f"{desired_chromosome_name_prefix}{chromosome}"
 
 
 def _extract_chromosome_stops(sorted_chromosomes, n_bins_per_chrom, bins_to_exclude=None):

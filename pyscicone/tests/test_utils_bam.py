@@ -6,10 +6,10 @@ from scicone import SCICoNE
 from scicone import utils_bam
 
 
-def _create_test_bam(path: Path):
+def _create_test_bam(path: Path, chromosome_prefix="chr"):
     header = {
         "HD": {"VN": "1.0", "SO": "coordinate"},
-        "SQ": [{"SN": "chr1", "LN": 500}, {"SN": "chr2", "LN": 400}],
+        "SQ": [{"SN": f"{chromosome_prefix}1", "LN": 500}, {"SN": f"{chromosome_prefix}2", "LN": 400}],
     }
 
     with pysam.AlignmentFile(path, "wb", header=header) as bamf:
@@ -62,3 +62,28 @@ def test_read_bam_respects_excluded_bins(tmp_path):
     assert data["filtered_counts"].shape == (2, 7)
     assert set(data["excluded_bins"].tolist()) == {1, 7}
     assert data["filtered_chromosome_stops"] == {"1": 3, "2": 6}
+
+
+def test_read_bam_chromosome_prefix_mapping(tmp_path):
+    bam_path = tmp_path / "toy_prefixed.bam"
+    _create_test_bam(bam_path, chromosome_prefix="GRCh_chr")
+
+    data = utils_bam.read_bam(
+        str(bam_path),
+        bin_size=100,
+        remove_noisy_bins=False,
+        current_chromosome_name_prefix="GRCh_chr",
+        desired_chromosome_name_prefix="chr",
+    )
+    assert data["unfiltered_counts"].shape == (2, 9)
+    assert data["unfiltered_chromosome_stops"] == {"chr1": 4, "chr2": 8}
+
+    sci = SCICoNE()
+    sci.read_bam(
+        str(bam_path),
+        bin_size=100,
+        remove_noisy_bins=False,
+        current_chromosome_name_prefix="GRCh_chr",
+        desired_chromosome_name_prefix="chr",
+    )
+    assert sci.data["filtered_chromosome_stops"] == {"chr1": 4, "chr2": 8}

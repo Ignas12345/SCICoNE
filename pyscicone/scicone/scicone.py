@@ -97,7 +97,8 @@ class SCICoNE(object):
     def read_10x(self, h5f_path, bins_to_exclude=None, downsampling_factor=1):
         self.data = utils_10x.read_hdf5(h5f_path, bins_to_exclude=bins_to_exclude, downsampling_factor=downsampling_factor)
 
-    def read_bam(self, bam_path, bins_to_exclude=None, downsampling_factor=1, bin_size=20000, **kwargs):
+    def read_bam(self, bam_path, bins_to_exclude=None, downsampling_factor=1, bin_size=20000,
+                 current_chromosome_name_prefix="", desired_chromosome_name_prefix="", **kwargs):
         """
         Read single-cell alignments from BAM and populate self.data in SCICoNE format.
         bam_path : str
@@ -108,6 +109,10 @@ class SCICoNE(object):
             Multiplies the effective bin size.
         bin_size : int
             Base bin size in base pairs before downsampling.
+        current_chromosome_name_prefix : str
+            Prefix currently used in BAM reference names (e.g., "GRCh_chr").
+        desired_chromosome_name_prefix : str
+            Prefix to use in output chromosome keys (e.g., "chr" or "").
         **kwargs
             Additional options passed to scicone.utils_bam.read_bam, including
             cell_tag, allow_missing_cell_tag, min_mapping_quality, read filtering flags,
@@ -118,6 +123,8 @@ class SCICoNE(object):
             bins_to_exclude=bins_to_exclude,
             downsampling_factor=downsampling_factor,
             bin_size=bin_size,
+            current_chromosome_name_prefix=current_chromosome_name_prefix,
+            desired_chromosome_name_prefix=desired_chromosome_name_prefix,
             **kwargs
         )
 
