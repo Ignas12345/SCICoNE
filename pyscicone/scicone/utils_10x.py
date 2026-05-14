@@ -58,9 +58,10 @@ def read_coverage_csv(csv_path, cell_column="CB", chromosome_column="chrom", bin
         cell_order = sorted(df[cell_column].unique().tolist())
 
     bin_sizes = (df[end_column] - df[start_column]).unique()
-    if not np.all(bin_sizes == bin_sizes[0]):
+    inferred_bin_size = bin_sizes[0]
+    if not np.all(bin_sizes == inferred_bin_size):
         raise ValueError("All bins must have the same bin_size.")
-    bin_size = int(bin_sizes[0])
+    bin_size = int(inferred_bin_size)
 
     chromosome_order = _sort_chromosomes_safe(df[chromosome_column].unique())
     chromosome_bin_map = {
@@ -87,8 +88,16 @@ def read_coverage_csv(csv_path, cell_column="CB", chromosome_column="chrom", bin
     if bins_to_exclude is None:
         excluded_bins = np.array([], dtype=int)
     else:
-        excluded_bins = np.unique(np.array(bins_to_exclude).astype(int))
-        excluded_bins = excluded_bins[(excluded_bins >= 0) & (excluded_bins < unfiltered_counts.shape[1])]
+        all_excluded_bins = np.unique(np.array(bins_to_exclude).astype(int))
+        invalid_excluded_bins = all_excluded_bins[
+            (all_excluded_bins < 0) | (all_excluded_bins >= unfiltered_counts.shape[1])
+        ]
+        if len(invalid_excluded_bins) > 0:
+            raise ValueError(
+                "bins_to_exclude contains invalid indices: "
+                f"{invalid_excluded_bins.tolist()} for {unfiltered_counts.shape[1]} total bins."
+            )
+        excluded_bins = all_excluded_bins
 
     is_excluded = np.zeros(unfiltered_counts.shape[1], dtype=bool)
     is_excluded[excluded_bins] = True

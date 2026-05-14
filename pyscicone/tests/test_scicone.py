@@ -2,6 +2,7 @@ from scicone import SCICoNE
 from scicone import utils_10x
 import pandas as pd
 import numpy as np
+import pytest
 
 def test_scicone():
     sci = SCICoNE()
@@ -65,3 +66,21 @@ def test_scicone_read_coverage_from_csv_wrapper(tmp_path):
     )
 
     assert sci.data["filtered_counts"].shape == (2, 2)
+
+def test_read_coverage_csv_invalid_bins_to_exclude(tmp_path):
+    csv_df = pd.DataFrame(
+        [
+            ["cell1", "GRCh38_chr1", 0, 0, 1000, 1],
+            ["cell1", "GRCh38_chr1", 1, 1000, 2000, 2],
+        ],
+        columns=["CB", "chrom", "bin", "start", "end", "count"]
+    )
+    csv_path = tmp_path / "scicone_test_invalid_bins.csv"
+    csv_df.to_csv(csv_path, index=False)
+
+    with pytest.raises(ValueError, match="bins_to_exclude contains invalid indices"):
+        utils_10x.read_coverage_csv(
+            csv_path,
+            current_chromosome_prefix="GRCh38_chr",
+            bins_to_exclude=[5]
+        )
