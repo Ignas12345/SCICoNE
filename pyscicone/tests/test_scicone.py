@@ -7,7 +7,7 @@ def test_scicone():
     sci = SCICoNE()
     sci.run_tests()
 
-def test_read_coverage_csv_basic():
+def test_read_coverage_csv_basic(tmp_path):
     csv_df = pd.DataFrame(
         [
             ["cellA", "GRCh38_chr1", 0, 0, 50000, 10],
@@ -21,7 +21,7 @@ def test_read_coverage_csv_basic():
         columns=["CB", "chrom", "bin", "start", "end", "count"]
     )
 
-    csv_path = "/tmp/scicone_test_coverage.csv"
+    csv_path = tmp_path / "scicone_test_coverage.csv"
     csv_df.to_csv(csv_path, index=False)
 
     out = utils_10x.read_coverage_csv(
@@ -44,7 +44,7 @@ def test_read_coverage_csv_basic():
     # cell order follows cells_to_keep and missing bin (chr1,1) for cellB is imputed as 0
     assert out["unfiltered_counts"][0, 1] == 0
 
-def test_scicone_read_coverage_from_csv_wrapper():
+def test_scicone_read_coverage_from_csv_wrapper(tmp_path):
     csv_df = pd.DataFrame(
         [
             ["cell1", "GRCh38_chr1", 0, 0, 1000, 1],
@@ -54,7 +54,7 @@ def test_scicone_read_coverage_from_csv_wrapper():
         ],
         columns=["CB", "chrom", "bin", "start", "end", "count"]
     )
-    csv_path = "/tmp/scicone_test_wrapper_coverage.csv"
+    csv_path = tmp_path / "scicone_test_wrapper_coverage.csv"
     csv_df.to_csv(csv_path, index=False)
 
     sci = SCICoNE()

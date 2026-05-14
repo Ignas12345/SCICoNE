@@ -19,7 +19,8 @@ def _extract_chromosome_stops_from_sizes(chromosome_order, bins_per_chromosome, 
     if bins_to_exclude is not None:
         bins_to_exclude = np.array(bins_to_exclude).astype(int)
         for idx, pos in enumerate(chr_ends):
-            chr_stops[chromosome_order[idx]] = pos - 1 - len(bins_to_exclude[np.where(bins_to_exclude < pos)[0]])
+            excluded_count = len(bins_to_exclude[np.where(bins_to_exclude < pos)[0]])
+            chr_stops[chromosome_order[idx]] = pos - 1 - excluded_count
     else:
         for idx, pos in enumerate(chr_ends):
             chr_stops[chromosome_order[idx]] = pos - 1
