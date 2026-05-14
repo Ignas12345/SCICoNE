@@ -1,5 +1,5 @@
 from scicone.tree import Tree
-from scicone import utils_10x, utils
+from scicone import utils_10x, utils_bam, utils
 
 import sys, os, shutil, subprocess
 from subprocess import PIPE
@@ -96,6 +96,15 @@ class SCICoNE(object):
 
     def read_10x(self, h5f_path, bins_to_exclude=None, downsampling_factor=1):
         self.data = utils_10x.read_hdf5(h5f_path, bins_to_exclude=bins_to_exclude, downsampling_factor=downsampling_factor)
+
+    def read_bam(self, bam_path, bins_to_exclude=None, downsampling_factor=1, bin_size=20000, **kwargs):
+        self.data = utils_bam.read_bam(
+            bam_path,
+            bins_to_exclude=bins_to_exclude,
+            downsampling_factor=downsampling_factor,
+            bin_size=bin_size,
+            **kwargs
+        )
 
     def simulate_data(self, n_cells=200, n_nodes=5, n_bins=1000, n_regions=40, n_reads=10000, nu=1.0, min_reg_size=10, max_regions_per_node=1, ploidy=2, region_neutral_states=None, verbosity=1, seed=42):
         if verbosity < 1:
